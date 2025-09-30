@@ -25,6 +25,7 @@ pub struct Cli {
 }
 
 impl Cli {
+    #[must_use]
     pub fn parse() -> Self {
         <Self as Parser>::parse()
     }

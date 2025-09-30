@@ -41,14 +41,17 @@ pub struct ScannedFile {
 }
 
 impl ScannerConfig {
+    #[must_use]
     pub fn root(&self) -> &Path {
         &self.canonical_root
     }
 
+    #[must_use]
     pub fn root_kind(&self) -> RootKind {
         self.root_kind
     }
 
+    #[must_use]
     pub fn root_label(&self) -> &str {
         &self.root_label
     }
@@ -88,8 +91,10 @@ impl TryFrom<Cli> for ScannerConfig {
         let root_label = canonical_root
             .file_name()
             .and_then(|name| name.to_str())
-            .map(|name| name.to_string())
-            .unwrap_or_else(|| canonical_root.display().to_string());
+            .map_or_else(
+                || canonical_root.display().to_string(),
+                std::string::ToString::to_string,
+            );
 
         let excludes = cli
             .exclude
@@ -110,6 +115,10 @@ impl TryFrom<Cli> for ScannerConfig {
     }
 }
 
+/// Collects language-matching files under the configured root.
+///
+/// # Errors
+/// Returns an error when filesystem access or source analysis fails.
 pub fn scan(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
     match config.root_kind {
         RootKind::File => scan_file_root(config),
@@ -126,8 +135,7 @@ fn scan_file_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
     let summary = analyze_file(config.language, path)?;
     let relative = path
         .file_name()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(path));
+        .map_or_else(|| PathBuf::from(path), PathBuf::from);
 
     if should_exclude(&relative, &config.excludes) {
         return Ok(Vec::new());
@@ -141,7 +149,7 @@ fn scan_file_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
 
 fn scan_directory_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
     let mut builder = WalkBuilder::new(config.root());
-    builder.sort_by_file_name(|a, b| a.cmp(b));
+    builder.sort_by_file_name(std::cmp::Ord::cmp);
     builder.hidden(false);
 
     if !config.git_ignore {

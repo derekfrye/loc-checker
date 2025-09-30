@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::scanner::{FileLocSummary, RootKind, ScannedFile, ScannerConfig};
 
+#[must_use]
 pub fn render_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
     let lines = match config.root_kind() {
         RootKind::File => render_file_root(config, files),
@@ -59,7 +60,7 @@ fn format_summary(summary: &FileLocSummary) -> String {
         summary
             .top_function_locs
             .iter()
-            .map(|loc| loc.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<Vec<_>>()
             .join(", ")
     };
@@ -118,11 +119,11 @@ impl TreeNode {
             let connector = if is_last { "└──" } else { "├──" };
             match entry {
                 Entry::Dir(name, child) => {
-                    lines.push(format!("{}{} {}/", prefix, connector, name));
+                    lines.push(format!("{prefix}{connector} {name}/"));
                     let next_prefix = if is_last {
-                        format!("{}    ", prefix)
+                        format!("{prefix}    ")
                     } else {
-                        format!("{}│   ", prefix)
+                        format!("{prefix}│   ")
                     };
                     child.render(&next_prefix, lines);
                 }

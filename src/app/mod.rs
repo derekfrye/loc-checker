@@ -45,6 +45,7 @@ impl Command {
 }
 
 impl Model {
+    #[must_use]
     pub fn new(config: ScannerConfig) -> Self {
         Self {
             config,
@@ -55,6 +56,10 @@ impl Model {
     }
 }
 
+/// Executes the MVU loop and returns the rendered report when scanning completes.
+///
+/// # Errors
+/// Returns an error if scanning fails or if the MVU state machine does not reach `Completed`.
 pub fn run(config: ScannerConfig) -> Result<String> {
     let mut model = Model::new(config);
     let mut queue = VecDeque::new();

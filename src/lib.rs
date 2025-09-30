@@ -6,6 +6,10 @@ pub mod scanner;
 
 use anyhow::Result;
 
+/// Parses CLI arguments, drives the MVU application, and prints the rendered report.
+///
+/// # Errors
+/// Returns an error when argument conversion or scanning fails.
 pub fn run() -> Result<()> {
     let args = cli::Cli::parse();
     let config = scanner::ScannerConfig::try_from(args)?;
