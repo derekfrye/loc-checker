@@ -6,13 +6,13 @@
 ## Build, Test, and Development Commands
 Use Cargo for all workflows:
 - `cargo check` — fast validation of compilation errors without producing binaries.
-- `cargo fmt` — format sources with rustfmt defaults before every commit.
-- `cargo clippy --all-targets --all-features` — lint for idiomatic Rust and catch edge cases.
+- `cargo fmt` — run sparingly during scheduled formatting passes (do not auto-run after every change).
+- `cargo clippy --all-targets --all-features -- -W clippy::pedantic` — lint with pedantic checks enabled.
 - `cargo test` — execute unit and integration tests; add `-- --nocapture` when debugging output.
 - `cargo run -- <args>` — run the binary locally, e.g. `cargo run -- ./samples/input.txt` once implemented.
 
 ## Coding Style & Naming Conventions
-Follow rustfmt defaults (4-space indent, max width from `.rustfmt.toml` when added). Use `snake_case` for modules, files, and functions; `UpperCamelCase` for types and traits; `SCREAMING_SNAKE_CASE` for constants. Keep functions small and prefer returning `Result<T>` for fallible paths. Run `cargo fmt && cargo clippy` prior to opening a PR.
+Follow rustfmt defaults (4-space indent, max width from `.rustfmt.toml` when added). Use `snake_case` for modules, files, and functions; `UpperCamelCase` for types and traits; `SCREAMING_SNAKE_CASE` for constants. Keep functions small and prefer returning `Result<T>` for fallible paths. Target total LOC per file under 200 lines and total LOC per function under 50 lines where practical. Run `cargo clippy --all-targets --all-features -- -W clippy::pedantic` prior to opening a PR; formatting is handled separately during scheduled passes.
 
 ## Testing Guidelines
 Use Rust’s built-in test harness. Unit tests live alongside code in `#[cfg(test)] mod tests` blocks with descriptive names such as `test_counts_blank_lines`. Create integration tests under `tests/` that exercise the binary end-to-end. When adding fixtures, store them in `tests/data/` and load with relative paths. Aim to cover new branches introduced by a change; highlight any intentional gaps in the PR description.
