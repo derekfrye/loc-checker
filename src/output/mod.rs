@@ -2,37 +2,41 @@ use std::collections::BTreeMap;
 
 use crate::scanner::{FileLocSummary, RootKind, ScannedFile, ScannerConfig};
 
-pub fn print_report(config: &ScannerConfig, files: &[ScannedFile]) {
-    match config.root_kind() {
-        RootKind::File => print_file_root(config, files),
-        RootKind::Directory => print_directory_root(config, files),
-    }
+pub fn render_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
+    let lines = match config.root_kind() {
+        RootKind::File => render_file_root(config, files),
+        RootKind::Directory => render_directory_root(config, files),
+    };
+
+    lines.join("\n")
 }
 
-fn print_file_root(config: &ScannerConfig, files: &[ScannedFile]) {
+fn render_file_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
     if let Some(file) = files.first() {
-        println!(
+        vec![format!(
             ". {} ({})",
             config.root_label(),
             format_summary(&file.summary)
-        );
+        )]
     } else {
-        println!(
+        vec![format!(
             ". {} (no files matched language {})",
             config.root_label(),
             config.language.display_name()
-        );
+        )]
     }
 }
 
-fn print_directory_root(config: &ScannerConfig, files: &[ScannedFile]) {
-    println!(". {}/", config.root_label());
+fn render_directory_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
+    let mut lines = Vec::new();
+    lines.push(format!(". {}/", config.root_label()));
+
     if files.is_empty() {
-        println!(
-            "|- no files matched language {}",
+        lines.push(format!(
+            "└── no files matched language {}",
             config.language.display_name()
-        );
-        return;
+        ));
+        return lines;
     }
 
     let mut tree = TreeNode::default();
@@ -43,7 +47,9 @@ fn print_directory_root(config: &ScannerConfig, files: &[ScannedFile]) {
         );
     }
     tree.sort();
-    tree.print(0);
+    tree.render("", &mut lines);
+
+    lines
 }
 
 fn format_summary(summary: &FileLocSummary) -> String {
@@ -79,7 +85,7 @@ impl TreeNode {
             } else {
                 self.directories
                     .entry(name)
-                    .or_insert_with(TreeNode::default)
+                    .or_default()
                     .insert(rest, summary);
             }
         }
@@ -92,19 +98,44 @@ impl TreeNode {
         }
     }
 
-    fn print(&self, depth: usize) {
-        for (name, child) in &self.directories {
-            println!("{}|- {}/", indent(depth), name);
-            child.print(depth + 1);
+    fn render(&self, prefix: &str, lines: &mut Vec<String>) {
+        enum Entry<'a> {
+            Dir(&'a str, &'a TreeNode),
+            File(&'a FileEntry),
         }
 
+        let mut entries: Vec<Entry<'_>> = Vec::new();
+        for (name, child) in &self.directories {
+            entries.push(Entry::Dir(name, child));
+        }
         for file in &self.files {
-            println!(
-                "{}|- {} ({})",
-                indent(depth),
-                file.name,
-                format_summary(&file.summary)
-            );
+            entries.push(Entry::File(file));
+        }
+
+        let total = entries.len();
+        for (index, entry) in entries.into_iter().enumerate() {
+            let is_last = index + 1 == total;
+            let connector = if is_last { "└──" } else { "├──" };
+            match entry {
+                Entry::Dir(name, child) => {
+                    lines.push(format!("{}{} {}/", prefix, connector, name));
+                    let next_prefix = if is_last {
+                        format!("{}    ", prefix)
+                    } else {
+                        format!("{}│   ", prefix)
+                    };
+                    child.render(&next_prefix, lines);
+                }
+                Entry::File(file) => {
+                    lines.push(format!(
+                        "{}{} {} ({})",
+                        prefix,
+                        connector,
+                        file.name,
+                        format_summary(&file.summary)
+                    ));
+                }
+            }
         }
     }
 }
@@ -117,13 +148,4 @@ struct FileEntry {
 
 fn component_to_string(component: &std::path::Component<'_>) -> String {
     component.as_os_str().to_string_lossy().into_owned()
-}
-
-fn indent(depth: usize) -> String {
-    let mut prefix = String::new();
-    if depth > 0 {
-        prefix.push_str(&"   ".repeat(depth));
-    }
-    prefix.push_str("|- ");
-    prefix
 }

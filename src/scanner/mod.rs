@@ -257,10 +257,10 @@ impl<'a> FnCollector<'a> {
 
         let mut count = 0usize;
         for idx in start_index..=end_index {
-            if let Some(text) = self.lines.get(idx) {
-                if !text.trim().is_empty() {
-                    count += 1;
-                }
+            if let Some(text) = self.lines.get(idx)
+                && !text.trim().is_empty()
+            {
+                count += 1;
             }
         }
 
