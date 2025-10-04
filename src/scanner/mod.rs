@@ -365,10 +365,10 @@ impl<'a> ItemCollector<'a> {
         if count == 0 { None } else { Some(count) }
     }
 
-    fn push_function_summary(&mut self, name: String, span: Span) -> Option<usize> {
+    fn push_function_summary(&mut self, name: &str, span: Span) -> Option<usize> {
         let loc = self.record_loc(span)?;
         self.function_summaries.push(NamedLoc {
-            name: name.clone(),
+            name: name.to_string(),
             loc,
         });
         Some(loc)
@@ -377,12 +377,10 @@ impl<'a> ItemCollector<'a> {
 
 impl<'ast> Visit<'ast> for ItemCollector<'_> {
     fn visit_item_fn(&mut self, node: &'ast ItemFn) {
-        if let Some(loc) = self.push_function_summary(node.sig.ident.to_string(), node.span()) {
+        let fn_name = node.sig.ident.to_string();
+        if let Some(loc) = self.push_function_summary(&fn_name, node.span()) {
             let is_test = node.attrs.iter().any(|attr| attr.path().is_ident("test"));
-            let entry = NamedLoc {
-                name: node.sig.ident.to_string(),
-                loc,
-            };
+            let entry = NamedLoc { name: fn_name, loc };
             if is_test {
                 self.test_functions.push(entry);
             } else {
@@ -445,16 +443,16 @@ impl<'ast> Visit<'ast> for ItemCollector<'_> {
     }
 
     fn visit_trait_item_fn(&mut self, node: &'ast TraitItemFn) {
-        if node.default.is_some() {
-            if let Some(trait_name) = self.trait_stack.last().cloned() {
-                let display = format!("trait {}::{}", trait_name, node.sig.ident);
-                if let Some(loc) = self.push_function_summary(display, node.span()) {
-                    self.trait_methods.push(TraitMethodLoc {
-                        trait_name,
-                        method_name: node.sig.ident.to_string(),
-                        loc,
-                    });
-                }
+        if node.default.is_some()
+            && let Some(trait_name) = self.trait_stack.last().cloned()
+        {
+            let display = format!("trait {}::{}", trait_name, node.sig.ident);
+            if let Some(loc) = self.push_function_summary(&display, node.span()) {
+                self.trait_methods.push(TraitMethodLoc {
+                    trait_name,
+                    method_name: node.sig.ident.to_string(),
+                    loc,
+                });
             }
         }
         syn::visit::visit_trait_item_fn(self, node);
@@ -489,7 +487,7 @@ impl<'ast> Visit<'ast> for ItemCollector<'_> {
                 }
                 None => format!("{}::{}", context.target, node.sig.ident),
             };
-            if let Some(loc) = self.push_function_summary(display, node.span()) {
+            if let Some(loc) = self.push_function_summary(&display, node.span()) {
                 self.impl_methods.push(ImplMethodLoc {
                     impl_target: context.target,
                     trait_name: context.trait_name,

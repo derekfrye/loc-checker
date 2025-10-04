@@ -38,8 +38,7 @@ fn counts_lines_for_test_project() {
         entry
             .get("name")
             .and_then(Value::as_str)
-            .map(|name| name.contains("compute_series_a"))
-            .unwrap_or(false)
+            .is_some_and(|name| name.contains("compute_series_a"))
     });
     assert!(
         lib_has_expected,
@@ -69,8 +68,7 @@ fn counts_lines_for_test_project() {
         entry
             .get("name")
             .and_then(Value::as_str)
-            .map(|name| name.contains("build_full_report"))
-            .unwrap_or(false)
+            .is_some_and(|name| name.contains("build_full_report"))
     });
     assert!(
         has_build_full_report,
