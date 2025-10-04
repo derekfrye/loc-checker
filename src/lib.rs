@@ -12,8 +12,8 @@ use anyhow::Result;
 /// Returns an error when argument conversion or scanning fails.
 pub fn run() -> Result<()> {
     let args = cli::Cli::parse();
-    let config = scanner::ScannerConfig::try_from(args)?;
-    let rendered = app::run(config)?;
+    let config = scanner::ScannerConfig::try_from(&args)?;
+    let rendered = app::run(config, args.output_format)?;
     println!("{rendered}");
     Ok(())
 }

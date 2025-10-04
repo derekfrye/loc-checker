@@ -1,18 +1,38 @@
 use std::collections::BTreeMap;
 
-use crate::scanner::{FileLocSummary, RootKind, ScannedFile, ScannerConfig};
+use clap::ValueEnum;
+use serde_json::{json, Value};
+
+use crate::scanner::{FileLocSummary, FunctionLoc, RootKind, ScannedFile, ScannerConfig};
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    Tree,
+    Json,
+}
 
 #[must_use]
-pub fn render_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
+pub fn render_report(
+    config: &ScannerConfig,
+    files: &[ScannedFile],
+    format: OutputFormat,
+) -> String {
+    match format {
+        OutputFormat::Tree => render_tree_report(config, files),
+        OutputFormat::Json => render_json_report(config, files),
+    }
+}
+
+fn render_tree_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
     let lines = match config.root_kind() {
-        RootKind::File => render_file_root(config, files),
-        RootKind::Directory => render_directory_root(config, files),
+        RootKind::File => render_tree_file_root(config, files),
+        RootKind::Directory => render_tree_directory_root(config, files),
     };
 
     lines.join("\n")
 }
 
-fn render_file_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
+fn render_tree_file_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
     if let Some(file) = files.first() {
         vec![format!(
             ". {} ({})",
@@ -28,7 +48,7 @@ fn render_file_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String
     }
 }
 
-fn render_directory_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
+fn render_tree_directory_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
     let mut lines = Vec::new();
     lines.push(format!(". {}/", config.root_label()));
 
@@ -53,6 +73,49 @@ fn render_directory_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<S
     lines
 }
 
+fn render_json_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
+    let total_loc: usize = files.iter().map(|file| file.summary.total_loc).sum();
+    let excludes = config
+        .excludes
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+
+    let files_json = files
+        .iter()
+        .map(|file| {
+            json!({
+                "path": file.relative_path.to_string_lossy(),
+                "summary": {
+                    "total_loc": file.summary.total_loc,
+                    "function_locs": summarize_function_locs(&file.summary.top_function_locs),
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let report = json!({
+        "root": {
+            "label": config.root_label(),
+            "kind": match config.root_kind() {
+                RootKind::File => "file",
+                RootKind::Directory => "directory",
+            },
+            "path": config.root().display().to_string(),
+        },
+        "language": config.language.display_name(),
+        "git_ignore": config.git_ignore,
+        "excludes": excludes,
+        "totals": {
+            "files": files.len(),
+            "total_loc": total_loc,
+        },
+        "files": files_json,
+    });
+
+    serde_json::to_string_pretty(&report).expect("json serialization should succeed")
+}
+
 fn format_summary(summary: &FileLocSummary) -> String {
     let functions = if summary.top_function_locs.is_empty() {
         "none".to_string()
@@ -60,7 +123,8 @@ fn format_summary(summary: &FileLocSummary) -> String {
         summary
             .top_function_locs
             .iter()
-            .map(std::string::ToString::to_string)
+            .take(3)
+            .map(|entry| format!("{} ({})", entry.name, entry.loc))
             .collect::<Vec<_>>()
             .join(", ")
     };
@@ -149,4 +213,14 @@ struct FileEntry {
 
 fn component_to_string(component: &std::path::Component<'_>) -> String {
     component.as_os_str().to_string_lossy().into_owned()
+}
+
+fn summarize_function_locs(entries: &[FunctionLoc]) -> Vec<Value> {
+    entries
+        .iter()
+        .map(|entry| json!({
+            "function_name": entry.name,
+            "loc": entry.loc,
+        }))
+        .collect()
 }

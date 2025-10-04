@@ -31,7 +31,13 @@ pub enum RootKind {
 #[derive(Clone, Debug)]
 pub struct FileLocSummary {
     pub total_loc: usize,
-    pub top_function_locs: Vec<usize>,
+    pub top_function_locs: Vec<FunctionLoc>,
+}
+
+#[derive(Clone, Debug)]
+pub struct FunctionLoc {
+    pub name: String,
+    pub loc: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -55,12 +61,8 @@ impl ScannerConfig {
     pub fn root_label(&self) -> &str {
         &self.root_label
     }
-}
 
-impl TryFrom<Cli> for ScannerConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(cli: Cli) -> Result<Self> {
+    fn from_cli(cli: &Cli) -> Result<Self> {
         let abs_path = if cli.path.is_absolute() {
             cli.path.clone()
         } else {
@@ -98,7 +100,7 @@ impl TryFrom<Cli> for ScannerConfig {
 
         let excludes = cli
             .exclude
-            .into_iter()
+            .iter()
             .map(|entry| entry.trim().to_string())
             .filter(|entry| !entry.is_empty())
             .map(PathBuf::from)
@@ -112,6 +114,22 @@ impl TryFrom<Cli> for ScannerConfig {
             root_kind,
             root_label,
         })
+    }
+}
+
+impl TryFrom<Cli> for ScannerConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(cli: Cli) -> Result<Self> {
+        Self::from_cli(&cli)
+    }
+}
+
+impl TryFrom<&Cli> for ScannerConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(cli: &Cli) -> Result<Self> {
+        Self::from_cli(cli)
     }
 }
 
@@ -218,30 +236,29 @@ fn analyze_file(language: Language, path: &Path) -> Result<FileLocSummary> {
     })
 }
 
-fn top_rust_function_locs(source: &str) -> Result<Vec<usize>> {
+fn top_rust_function_locs(source: &str) -> Result<Vec<FunctionLoc>> {
     let syntax = syn::parse_file(source).context("unable to parse Rust source")?;
     let mut collector = FnCollector::new(source);
     collector.visit_file(&syntax);
-    let mut fn_locs = collector.into_counts();
-    fn_locs.sort_by(|a, b| b.cmp(a));
-    fn_locs.truncate(3);
+    let mut fn_locs = collector.into_entries();
+    fn_locs.sort_by(|a, b| b.loc.cmp(&a.loc).then_with(|| a.name.cmp(&b.name)));
     Ok(fn_locs)
 }
 
 struct FnCollector<'a> {
     lines: Vec<&'a str>,
-    counts: Vec<usize>,
+    entries: Vec<FunctionLoc>,
 }
 
 impl<'a> FnCollector<'a> {
     fn new(source: &'a str) -> Self {
         Self {
             lines: source.lines().collect(),
-            counts: Vec::new(),
+            entries: Vec::new(),
         }
     }
 
-    fn push_span(&mut self, span: Span) {
+    fn push_span(&mut self, span: Span, name: String) {
         if self.lines.is_empty() {
             return;
         }
@@ -272,27 +289,32 @@ impl<'a> FnCollector<'a> {
             }
         }
 
-        self.counts.push(count);
+        if count > 0 {
+            self.entries.push(FunctionLoc {
+                name,
+                loc: count,
+            });
+        }
     }
 
-    fn into_counts(self) -> Vec<usize> {
-        self.counts
+    fn into_entries(self) -> Vec<FunctionLoc> {
+        self.entries
     }
 }
 
 impl<'ast> Visit<'ast> for FnCollector<'_> {
     fn visit_item_fn(&mut self, node: &'ast ItemFn) {
-        self.push_span(node.span());
+        self.push_span(node.span(), node.sig.ident.to_string());
         syn::visit::visit_item_fn(self, node);
     }
 
     fn visit_impl_item_fn(&mut self, node: &'ast ImplItemFn) {
-        self.push_span(node.span());
+        self.push_span(node.span(), node.sig.ident.to_string());
         syn::visit::visit_impl_item_fn(self, node);
     }
 
     fn visit_trait_item_fn(&mut self, node: &'ast TraitItemFn) {
-        self.push_span(node.span());
+        self.push_span(node.span(), node.sig.ident.to_string());
         syn::visit::visit_trait_item_fn(self, node);
     }
 }

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 use crate::language::Language;
+use crate::output::OutputFormat;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Count LOC across source files", long_about = None)]
@@ -22,6 +23,10 @@ pub struct Cli {
     /// Comma-separated list of relative paths to exclude from scanning
     #[arg(long, value_delimiter = ',')]
     pub exclude: Vec<String>,
+
+    /// Output format for the rendered report
+    #[arg(long = "output-format", value_enum, default_value_t = OutputFormat::Tree)]
+    pub output_format: OutputFormat,
 }
 
 impl Cli {
