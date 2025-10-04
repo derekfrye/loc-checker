@@ -11,6 +11,14 @@ Use Cargo for all workflows:
 - `cargo test` — execute unit and integration tests; add `-- --nocapture` when debugging output.
 - `cargo run -- <args>` — run the binary locally, e.g. `cargo run -- ./samples/input.txt` once implemented.
 
+### Post-change verification sequence
+After making code changes, run the following commands in order:
+1. `cargo check`
+2. `cargo test --tests`
+3. `cargo clippy -- -W clippy::pedantic`
+4. `cargo run -- --path <target>`
+5. `cargo run -- --path <target> --output-format json`
+
 ## Coding Style & Naming Conventions
 Follow rustfmt defaults (4-space indent, max width from `.rustfmt.toml` when added). Use `snake_case` for modules, files, and functions; `UpperCamelCase` for types and traits; `SCREAMING_SNAKE_CASE` for constants. Keep functions small and prefer returning `Result<T>` for fallible paths. Target total LOC per file under 200 lines and total LOC per function under 50 lines where practical. Run `cargo clippy --all-targets --all-features -- -W clippy::pedantic` prior to opening a PR; formatting is handled separately during scheduled passes.
 
