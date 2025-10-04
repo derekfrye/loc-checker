@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
 use clap::ValueEnum;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::scanner::{FileLocSummary, FunctionLoc, RootKind, ScannedFile, ScannerConfig};
+use crate::scanner::{
+    FileLocSummary, ImplBlockLoc, ImplMethodLoc, NamedLoc, RootKind, ScannedFile, ScannerConfig,
+    TraitMethodLoc,
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum OutputFormat {
@@ -84,11 +87,22 @@ fn render_json_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
     let files_json = files
         .iter()
         .map(|file| {
+            let summary = &file.summary;
             json!({
                 "path": file.relative_path.to_string_lossy(),
                 "summary": {
-                    "total_loc": file.summary.total_loc,
-                    "function_locs": summarize_function_locs(&file.summary.top_function_locs),
+                    "total_loc": summary.total_loc,
+                    "top_functions": named_locs_to_json(&summary.top_functions),
+                    "file_scope_functions": named_locs_to_json(&summary.file_scope_functions),
+                    "impl_methods": impl_methods_to_json(&summary.impl_methods),
+                    "trait_methods": trait_methods_to_json(&summary.trait_methods),
+                    "test_functions": named_locs_to_json(&summary.test_functions),
+                    "structs": named_locs_to_json(&summary.struct_defs),
+                    "enums": named_locs_to_json(&summary.enum_defs),
+                    "traits": named_locs_to_json(&summary.trait_defs),
+                    "impl_blocks": impl_blocks_to_json(&summary.impl_blocks),
+                    "consts": named_locs_to_json(&summary.consts),
+                    "statics": named_locs_to_json(&summary.statics),
                 }
             })
         })
@@ -117,13 +131,12 @@ fn render_json_report(config: &ScannerConfig, files: &[ScannedFile]) -> String {
 }
 
 fn format_summary(summary: &FileLocSummary) -> String {
-    let functions = if summary.top_function_locs.is_empty() {
+    let functions = if summary.top_functions.is_empty() {
         "none".to_string()
     } else {
         summary
-            .top_function_locs
+            .top_functions
             .iter()
-            .take(3)
             .map(|entry| format!("{} ({})", entry.name, entry.loc))
             .collect::<Vec<_>>()
             .join(", ")
@@ -215,12 +228,94 @@ fn component_to_string(component: &std::path::Component<'_>) -> String {
     component.as_os_str().to_string_lossy().into_owned()
 }
 
-fn summarize_function_locs(entries: &[FunctionLoc]) -> Vec<Value> {
-    entries
-        .iter()
-        .map(|entry| json!({
-            "function_name": entry.name,
-            "loc": entry.loc,
-        }))
+fn named_locs_to_json(entries: &[NamedLoc]) -> Vec<Value> {
+    let mut items = entries.to_vec();
+    items.sort_by(|a, b| b.loc.cmp(&a.loc).then_with(|| a.name.cmp(&b.name)));
+    items
+        .into_iter()
+        .map(|entry| {
+            json!({
+                "name": entry.name,
+                "loc": entry.loc,
+            })
+        })
+        .collect()
+}
+
+fn impl_methods_to_json(entries: &[ImplMethodLoc]) -> Vec<Value> {
+    let mut items = entries.to_vec();
+    items.sort_by(|a, b| {
+        b.loc.cmp(&a.loc).then_with(|| {
+            let trait_cmp = a.trait_name.cmp(&b.trait_name);
+            if trait_cmp == std::cmp::Ordering::Equal {
+                a.impl_target
+                    .cmp(&b.impl_target)
+                    .then(a.method_name.cmp(&b.method_name))
+            } else {
+                trait_cmp
+            }
+        })
+    });
+
+    items
+        .into_iter()
+        .map(|entry| {
+            json!({
+                "impl_target": entry.impl_target,
+                "trait_name": entry.trait_name,
+                "method_name": entry.method_name,
+                "loc": entry.loc,
+            })
+        })
+        .collect()
+}
+
+fn trait_methods_to_json(entries: &[TraitMethodLoc]) -> Vec<Value> {
+    let mut items = entries.to_vec();
+    items.sort_by(|a, b| {
+        b.loc.cmp(&a.loc).then_with(|| {
+            let trait_cmp = a.trait_name.cmp(&b.trait_name);
+            if trait_cmp == std::cmp::Ordering::Equal {
+                a.method_name.cmp(&b.method_name)
+            } else {
+                trait_cmp
+            }
+        })
+    });
+
+    items
+        .into_iter()
+        .map(|entry| {
+            json!({
+                "trait_name": entry.trait_name,
+                "method_name": entry.method_name,
+                "loc": entry.loc,
+            })
+        })
+        .collect()
+}
+
+fn impl_blocks_to_json(entries: &[ImplBlockLoc]) -> Vec<Value> {
+    let mut items = entries.to_vec();
+    items.sort_by(|a, b| {
+        b.loc.cmp(&a.loc).then_with(|| {
+            let trait_cmp = a.trait_name.cmp(&b.trait_name);
+            if trait_cmp == std::cmp::Ordering::Equal {
+                a.target.cmp(&b.target)
+            } else {
+                trait_cmp
+            }
+        })
+    });
+
+    items
+        .into_iter()
+        .map(|entry| {
+            json!({
+                "impl_target": entry.target,
+                "trait_name": entry.trait_name,
+                "loc": entry.loc,
+            })
+        })
         .collect()
 }
