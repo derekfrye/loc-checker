@@ -13,7 +13,8 @@ use anyhow::Result;
 pub fn run() -> Result<()> {
     let args = cli::Cli::parse();
     let config = scanner::ScannerConfig::try_from(&args)?;
-    let rendered = app::run(config, args.output_format)?;
+    let offender_filter = args.offender_filter();
+    let rendered = app::run(config, args.output_format, offender_filter.as_ref())?;
     println!("{rendered}");
     Ok(())
 }

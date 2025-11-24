@@ -3,16 +3,20 @@ use std::collections::BTreeMap;
 use crate::scanner::{FileLocSummary, RootKind, ScannedFile, ScannerConfig};
 
 #[must_use]
-pub fn render(config: &ScannerConfig, files: &[ScannedFile]) -> String {
+pub fn render(config: &ScannerConfig, files: &[ScannedFile], filter_active: bool) -> String {
     let lines = match config.root_kind() {
-        RootKind::File => render_file_root(config, files),
-        RootKind::Directory => render_directory_root(config, files),
+        RootKind::File => render_file_root(config, files, filter_active),
+        RootKind::Directory => render_directory_root(config, files, filter_active),
     };
 
     lines.join("\n")
 }
 
-fn render_file_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
+fn render_file_root(
+    config: &ScannerConfig,
+    files: &[ScannedFile],
+    filter_active: bool,
+) -> Vec<String> {
     if let Some(file) = files.first() {
         vec![format!(
             ". {} ({})",
@@ -20,23 +24,35 @@ fn render_file_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String
             format_summary(&file.summary)
         )]
     } else {
-        vec![format!(
-            ". {} (no files matched language {})",
-            config.root_label(),
-            config.language.display_name()
-        )]
+        let message = if filter_active {
+            "no files exceeded configured LOC limits".to_string()
+        } else {
+            format!(
+                "no files matched language {}",
+                config.language.display_name()
+            )
+        };
+        vec![format!(". {} ({message})", config.root_label())]
     }
 }
 
-fn render_directory_root(config: &ScannerConfig, files: &[ScannedFile]) -> Vec<String> {
+fn render_directory_root(
+    config: &ScannerConfig,
+    files: &[ScannedFile],
+    filter_active: bool,
+) -> Vec<String> {
     let mut lines = Vec::new();
     lines.push(format!(". {}/", config.root_label()));
 
     if files.is_empty() {
-        lines.push(format!(
-            "└── no files matched language {}",
-            config.language.display_name()
-        ));
+        if filter_active {
+            lines.push("└── no files exceeded configured LOC limits".to_string());
+        } else {
+            lines.push(format!(
+                "└── no files matched language {}",
+                config.language.display_name()
+            ));
+        }
         return lines;
     }
 

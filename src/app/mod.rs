@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use anyhow::{Result, bail};
 
-use crate::output::{self, OutputFormat};
+use crate::output::{self, OffenderFilter, OutputFormat};
 use crate::scanner::{ScannedFile, ScannerConfig, scan};
 
 /// Single source of truth for MVU state.
@@ -60,7 +60,11 @@ impl Model {
 ///
 /// # Errors
 /// Returns an error if scanning fails or if the MVU state machine does not reach `Completed`.
-pub fn run(config: ScannerConfig, format: OutputFormat) -> Result<String> {
+pub fn run(
+    config: ScannerConfig,
+    format: OutputFormat,
+    offender_filter: Option<&OffenderFilter>,
+) -> Result<String> {
     let mut model = Model::new(config);
     let mut queue = VecDeque::new();
     // Seed the MVU cycle with the initial message.
@@ -75,7 +79,12 @@ pub fn run(config: ScannerConfig, format: OutputFormat) -> Result<String> {
     }
 
     match model.status {
-        Status::Completed => Ok(output::render_report(&model.config, &model.files, format)),
+        Status::Completed => Ok(output::render_report(
+            &model.config,
+            &model.files,
+            format,
+            offender_filter,
+        )),
         Status::Failed => {
             // Propagate failure details collected during the update phase.
             if let Some(message) = model.error {
