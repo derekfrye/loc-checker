@@ -4,7 +4,7 @@
 
 ## Features
 
-- CLI built with Clap 4 (`--path`, `--lang`, `--git-ignore-support`, `--exclude`)
+- CLI built with Clap 4 (`--path`, `--lang`, `--git-ignore-support`, `--exclude`, `--include-path`, `--exclude-path`)
 - Language-aware file matching (Rust today, enum-based for future languages)
 - Optional `.gitignore` honoring via `ignore` crate
 - Outputs a `tree`-like summary with LOC metrics per file
@@ -19,13 +19,13 @@ cargo install --path .
 ## Usage
 
 ```
-cargo run -- --path <ROOT> [--lang rust] [--git-ignore-support] [--exclude dir1,dir2]
+cargo run -- --path <ROOT> [--lang rust] [--git-ignore-support] [--exclude dir1,dir2] [--include-path <regex>] [--exclude-path <regex>]
 ```
 
 Example:
 
 ```
-cargo run -- --path ../uncommitted --git-ignore-support --exclude target
+cargo run -- --path ../uncommitted --git-ignore-support --exclude target --exclude-path ".*\\.gen\\.rs$"
 ```
 
 ## Development

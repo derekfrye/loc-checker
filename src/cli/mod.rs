@@ -24,6 +24,14 @@ pub struct Cli {
     #[arg(long, value_delimiter = ',')]
     pub exclude: Vec<String>,
 
+    /// Regex patterns to include files by relative path
+    #[arg(long = "include-path", value_delimiter = ',')]
+    pub include_path: Vec<String>,
+
+    /// Regex patterns to exclude files by relative path
+    #[arg(long = "exclude-path", value_delimiter = ',')]
+    pub exclude_path: Vec<String>,
+
     /// Output format for the rendered report
     #[arg(long = "output-format", value_enum, default_value_t = OutputFormat::Tree)]
     pub output_format: OutputFormat,

@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use ignore::WalkBuilder;
+use regex::Regex;
 
 use super::analyze::analyze_file;
 use super::config::{RootKind, ScannerConfig};
@@ -35,7 +36,7 @@ fn scan_file_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
         .file_name()
         .map_or_else(|| PathBuf::from(path), PathBuf::from);
 
-    if should_exclude(&relative, &config.excludes) {
+    if should_skip(&relative, config) {
         return Ok(Vec::new());
     }
 
@@ -71,7 +72,7 @@ fn scan_directory_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
             Err(_) => continue,
         };
 
-        if should_exclude(&relative, &config.excludes) {
+        if should_skip(&relative, config) {
             continue;
         }
 
@@ -93,6 +94,33 @@ fn scan_directory_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
     Ok(results)
 }
 
-fn should_exclude(relative: &Path, excludes: &[PathBuf]) -> bool {
-    excludes.iter().any(|ex| relative.starts_with(ex))
+fn should_skip(relative: &Path, config: &ScannerConfig) -> bool {
+    if config.excludes.iter().any(|ex| relative.starts_with(ex)) {
+        return true;
+    }
+
+    let match_target = path_for_matching(relative);
+
+    if matches_regexes(&match_target, &config.exclude_path_regexes) {
+        return true;
+    }
+
+    if config.include_path_regexes.is_empty() {
+        return false;
+    }
+
+    !matches_regexes(&match_target, &config.include_path_regexes)
+}
+
+fn matches_regexes(target: &str, regexes: &[Regex]) -> bool {
+    regexes.iter().any(|re| re.is_match(target))
+}
+
+fn path_for_matching(relative: &Path) -> String {
+    let raw = relative.to_string_lossy();
+    if std::path::MAIN_SEPARATOR == '/' {
+        raw.into_owned()
+    } else {
+        raw.replace(std::path::MAIN_SEPARATOR, "/")
+    }
 }

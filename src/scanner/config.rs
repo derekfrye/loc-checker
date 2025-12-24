@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
+use regex::Regex;
 
 use crate::cli::Cli;
 use crate::language::Language;
@@ -13,6 +14,8 @@ pub struct ScannerConfig {
     canonical_root: PathBuf,
     pub git_ignore: bool,
     pub excludes: Vec<PathBuf>,
+    pub include_path_regexes: Vec<Regex>,
+    pub exclude_path_regexes: Vec<Regex>,
     root_kind: RootKind,
     root_label: String,
 }
@@ -83,11 +86,16 @@ impl ScannerConfig {
             .map(PathBuf::from)
             .collect();
 
+        let include_path_regexes = compile_regexes(&cli.include_path, "include-path")?;
+        let exclude_path_regexes = compile_regexes(&cli.exclude_path, "exclude-path")?;
+
         Ok(Self {
             language: cli.lang,
             canonical_root,
             git_ignore: cli.git_ignore_support,
             excludes,
+            include_path_regexes,
+            exclude_path_regexes,
             root_kind,
             root_label,
         })
@@ -108,4 +116,16 @@ impl TryFrom<&Cli> for ScannerConfig {
     fn try_from(cli: &Cli) -> Result<Self> {
         Self::from_cli(cli)
     }
+}
+
+fn compile_regexes(values: &[String], label: &str) -> Result<Vec<Regex>> {
+    values
+        .iter()
+        .map(|entry| entry.trim())
+        .filter(|entry| !entry.is_empty())
+        .map(|pattern| {
+            Regex::new(pattern)
+                .with_context(|| format!("invalid {label} regex: {pattern}"))
+        })
+        .collect()
 }

@@ -12,6 +12,16 @@ pub fn render(config: &ScannerConfig, files: &[ScannedFile]) -> String {
         .iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect::<Vec<_>>();
+    let include_path_regexes = config
+        .include_path_regexes
+        .iter()
+        .map(|pattern| pattern.as_str().to_string())
+        .collect::<Vec<_>>();
+    let exclude_path_regexes = config
+        .exclude_path_regexes
+        .iter()
+        .map(|pattern| pattern.as_str().to_string())
+        .collect::<Vec<_>>();
 
     let files_json = files
         .iter()
@@ -49,6 +59,8 @@ pub fn render(config: &ScannerConfig, files: &[ScannedFile]) -> String {
         "language": config.language.display_name(),
         "git_ignore": config.git_ignore,
         "excludes": excludes,
+        "include_path_regexes": include_path_regexes,
+        "exclude_path_regexes": exclude_path_regexes,
         "totals": {
             "files": files.len(),
             "total_loc": total_loc,
