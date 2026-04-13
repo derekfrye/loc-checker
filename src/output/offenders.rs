@@ -50,6 +50,8 @@ fn filter_summary(summary: &FileLocSummary, filter: &OffenderFilter) -> FileLocS
         struct_defs: summary.struct_defs.clone(),
         enum_defs: summary.enum_defs.clone(),
         trait_defs: summary.trait_defs.clone(),
+        delegate_defs: summary.delegate_defs.clone(),
+        event_defs: summary.event_defs.clone(),
         impl_blocks: summary.impl_blocks.clone(),
         consts: summary.consts.clone(),
         statics: summary.statics.clone(),

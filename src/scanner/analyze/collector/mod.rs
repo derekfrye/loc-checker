@@ -58,6 +58,8 @@ impl<'a> ItemCollector<'a> {
             struct_defs: self.struct_defs,
             enum_defs: self.enum_defs,
             trait_defs: self.trait_defs,
+            delegate_defs: Vec::new(),
+            event_defs: Vec::new(),
             impl_blocks: self.impl_blocks,
             consts: self.consts,
             statics: self.statics,

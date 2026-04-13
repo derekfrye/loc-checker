@@ -8,8 +8,8 @@ use crate::output::{OffenderFilter, OutputFormat};
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Count LOC across source files", long_about = None)]
 pub struct Cli {
-    /// Language to scan (currently only supports rust)
-    #[arg(long, value_enum, default_value_t = Language::Rust)]
+    /// Language to scan (defaults to auto-detection)
+    #[arg(long, value_enum, default_value_t = Language::Auto)]
     pub lang: Language,
 
     /// Starting path to scan

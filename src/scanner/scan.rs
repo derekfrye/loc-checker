@@ -95,6 +95,10 @@ fn scan_directory_root(config: &ScannerConfig) -> Result<Vec<ScannedFile>> {
 }
 
 fn should_skip(relative: &Path, config: &ScannerConfig) -> bool {
+    if config.language.is_generated_path(relative) {
+        return true;
+    }
+
     if config.excludes.iter().any(|ex| relative.starts_with(ex)) {
         return true;
     }

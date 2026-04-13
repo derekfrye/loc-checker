@@ -1,3 +1,4 @@
+mod csharp;
 mod collector;
 
 use std::fs;
@@ -8,6 +9,7 @@ use anyhow::{Context, Result};
 use crate::language::Language;
 
 use super::summary::{FileLocSummary, ImplBlockLoc, ImplMethodLoc, NamedLoc, TraitMethodLoc};
+use csharp::summarize_csharp_file;
 use collector::ItemCollector;
 use syn::visit::Visit;
 
@@ -22,6 +24,8 @@ pub fn analyze_file(language: Language, path: &Path) -> Result<FileLocSummary> {
 
     match language {
         Language::Rust => summarize_rust_file(&source, total_loc),
+        Language::Csharp => summarize_csharp_file(&source, total_loc),
+        Language::Auto => unreachable!("scanner config resolves auto-detected language"),
     }
 }
 
@@ -45,6 +49,8 @@ fn summarize_rust_file(source: &str, total_loc: usize) -> Result<FileLocSummary>
         struct_defs: parts.struct_defs,
         enum_defs: parts.enum_defs,
         trait_defs: parts.trait_defs,
+        delegate_defs: Vec::new(),
+        event_defs: Vec::new(),
         impl_blocks: parts.impl_blocks,
         consts: parts.consts,
         statics: parts.statics,
@@ -59,6 +65,8 @@ pub(super) struct CollectorParts {
     pub struct_defs: Vec<NamedLoc>,
     pub enum_defs: Vec<NamedLoc>,
     pub trait_defs: Vec<NamedLoc>,
+    pub delegate_defs: Vec<NamedLoc>,
+    pub event_defs: Vec<NamedLoc>,
     pub impl_blocks: Vec<ImplBlockLoc>,
     pub consts: Vec<NamedLoc>,
     pub statics: Vec<NamedLoc>,

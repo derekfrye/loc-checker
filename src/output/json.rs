@@ -39,6 +39,8 @@ pub fn render(config: &ScannerConfig, files: &[ScannedFile]) -> String {
                     "structs": named_locs_to_json(&summary.struct_defs),
                     "enums": named_locs_to_json(&summary.enum_defs),
                     "traits": named_locs_to_json(&summary.trait_defs),
+                    "delegates": named_locs_to_json(&summary.delegate_defs),
+                    "events": named_locs_to_json(&summary.event_defs),
                     "impl_blocks": impl_blocks_to_json(&summary.impl_blocks),
                     "consts": named_locs_to_json(&summary.consts),
                     "statics": named_locs_to_json(&summary.statics),

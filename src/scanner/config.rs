@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
+use ignore::WalkBuilder;
 use regex::Regex;
 
 use crate::cli::Cli;
@@ -88,9 +89,10 @@ impl ScannerConfig {
 
         let include_path_regexes = compile_regexes(&cli.include_path, "include-path")?;
         let exclude_path_regexes = compile_regexes(&cli.exclude_path, "exclude-path")?;
+        let language = detect_language(cli.lang, &canonical_root, root_kind)?;
 
         Ok(Self {
-            language: cli.lang,
+            language,
             canonical_root,
             git_ignore: cli.git_ignore_support,
             excludes,
@@ -116,6 +118,98 @@ impl TryFrom<&Cli> for ScannerConfig {
     fn try_from(cli: &Cli) -> Result<Self> {
         Self::from_cli(cli)
     }
+}
+
+fn detect_language(requested: Language, root: &Path, root_kind: RootKind) -> Result<Language> {
+    if requested != Language::Auto {
+        return Ok(requested);
+    }
+
+    match root_kind {
+        RootKind::File => detect_language_for_file(root),
+        RootKind::Directory => detect_language_for_directory(root),
+    }
+}
+
+fn detect_language_for_file(path: &Path) -> Result<Language> {
+    if Language::Rust.matches(path) {
+        return Ok(Language::Rust);
+    }
+    if Language::Csharp.matches(path) {
+        return Ok(Language::Csharp);
+    }
+
+    bail!(
+        "unable to detect language for file {}; pass --lang explicitly",
+        path.display()
+    );
+}
+
+fn detect_language_for_directory(root: &Path) -> Result<Language> {
+    let has_cargo_toml = root.join("Cargo.toml").is_file();
+    let has_dotnet_marker = fs::read_dir(root)
+        .with_context(|| format!("failed to read directory {}", root.display()))?
+        .filter_map(std::result::Result::ok)
+        .any(|entry| {
+            let path = entry.path();
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| {
+                    ext.eq_ignore_ascii_case("sln") || ext.eq_ignore_ascii_case("csproj")
+                })
+        });
+
+    let mut rust_files = 0usize;
+    let mut csharp_files = 0usize;
+    let mut builder = WalkBuilder::new(root);
+    builder.hidden(false);
+    builder.git_ignore(false);
+    builder.git_global(false);
+    builder.git_exclude(false);
+
+    for entry in builder.build().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            continue;
+        }
+
+        if Language::Rust.matches(path) {
+            rust_files += 1;
+        } else if Language::Csharp.matches(path) {
+            let relative = path.strip_prefix(root).unwrap_or(path);
+            if !Language::Csharp.is_generated_path(relative) {
+                csharp_files += 1;
+            }
+        }
+
+        if rust_files >= 64 && csharp_files >= 64 {
+            break;
+        }
+    }
+
+    if has_cargo_toml && !has_dotnet_marker {
+        return Ok(Language::Rust);
+    }
+    if has_dotnet_marker && !has_cargo_toml {
+        return Ok(Language::Csharp);
+    }
+    if rust_files > 0 && csharp_files == 0 {
+        return Ok(Language::Rust);
+    }
+    if csharp_files > 0 && rust_files == 0 {
+        return Ok(Language::Csharp);
+    }
+    if rust_files > csharp_files {
+        return Ok(Language::Rust);
+    }
+    if csharp_files > rust_files {
+        return Ok(Language::Csharp);
+    }
+
+    bail!(
+        "unable to auto-detect language for {}; pass --lang explicitly",
+        root.display()
+    )
 }
 
 fn compile_regexes(values: &[String], label: &str) -> Result<Vec<Regex>> {

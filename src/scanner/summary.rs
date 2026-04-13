@@ -9,6 +9,8 @@ pub struct FileLocSummary {
     pub struct_defs: Vec<NamedLoc>,
     pub enum_defs: Vec<NamedLoc>,
     pub trait_defs: Vec<NamedLoc>,
+    pub delegate_defs: Vec<NamedLoc>,
+    pub event_defs: Vec<NamedLoc>,
     pub impl_blocks: Vec<ImplBlockLoc>,
     pub consts: Vec<NamedLoc>,
     pub statics: Vec<NamedLoc>,
