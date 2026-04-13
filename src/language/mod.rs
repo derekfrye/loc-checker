@@ -67,5 +67,7 @@ fn is_generated_csharp_path(path: &Path) -> bool {
     ]
     .iter()
     .any(|suffix| lower.ends_with(suffix))
+        || lower == "assemblyinfo.cs"
+        || lower == "solutioninfo.cs"
         || lower.starts_with("temporarygeneratedfile_")
 }

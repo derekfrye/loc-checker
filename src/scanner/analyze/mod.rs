@@ -14,8 +14,7 @@ use collector::ItemCollector;
 use syn::visit::Visit;
 
 pub fn analyze_file(language: Language, path: &Path) -> Result<FileLocSummary> {
-    let source =
-        fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
+    let source = read_source(path)?;
 
     let total_loc = source
         .lines()
@@ -27,6 +26,11 @@ pub fn analyze_file(language: Language, path: &Path) -> Result<FileLocSummary> {
         Language::Csharp => summarize_csharp_file(&source, total_loc),
         Language::Auto => unreachable!("scanner config resolves auto-detected language"),
     }
+}
+
+fn read_source(path: &Path) -> Result<String> {
+    let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn summarize_rust_file(source: &str, total_loc: usize) -> Result<FileLocSummary> {
